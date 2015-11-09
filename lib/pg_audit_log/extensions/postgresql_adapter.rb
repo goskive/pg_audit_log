@@ -2,11 +2,11 @@ require 'active_record/connection_adapters/postgresql_adapter'
 
 # Did not want to reopen the class but sending an include seemingly is not working.
 class ActiveRecord::ConnectionAdapters::PostgreSQLAdapter
-  def drop_table_with_auditing(table_name)
+  def drop_table_with_auditing(table_name, options = {})
     if PgAuditLog::Triggers.tables_with_triggers.include?(table_name)
       PgAuditLog::Triggers.drop_for_table(table_name)
     end
-    drop_table_without_auditing(table_name)
+    drop_table_without_auditing(table_name, options)
   end
   alias_method_chain :drop_table, :auditing
 
