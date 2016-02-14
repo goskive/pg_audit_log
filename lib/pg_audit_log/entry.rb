@@ -19,6 +19,8 @@ class PgAuditLog::Entry < ActiveRecord::Base
 
     def install
       sql = <<-SQL
+        CREATE EXTENSION IF NOT EXISTS hstore;
+
         CREATE SEQUENCE #{self.table_name}_id_seq
             START WITH 1
             INCREMENT BY 1;
@@ -33,7 +35,8 @@ class PgAuditLog::Entry < ActiveRecord::Base
             field_value_new text,
             field_value_old text,
             occurred_at timestamp without time zone,
-            primary_key character varying(255)
+            primary_key character varying(255),
+            properties hstore
         );
 
         ALTER SEQUENCE #{self.table_name}_id_seq OWNED BY #{self.table_name}.id;

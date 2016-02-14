@@ -46,6 +46,16 @@ class ActiveRecord::ConnectionAdapters::PostgreSQLAdapter
     true
   end
 
+  def set_audit_properties
+    properties = Thread.current[:custom_audit_properties] || {}
+    return true if @last_audit_properties == properties
+
+    execute_without_pg_audit_log PgAuditLog::Function::properties_temporary_function(properties)
+    @last_audit_properties = properties
+
+    true
+  end
+
   def set_user_id(user_id = nil)
     execute_without_pg_audit_log PgAuditLog::Function::user_identifier_temporary_function(user_id || @last_user_id)
   end
@@ -57,12 +67,13 @@ class ActiveRecord::ConnectionAdapters::PostgreSQLAdapter
 
   def reconnect_with_pg_audit_log!
     reconnect_without_pg_audit_log!
-    @last_user_id = @last_unique_name = nil
+    @last_user_id = @last_unique_name = @last_audit_properties = nil
   end
   alias_method_chain :reconnect!, :pg_audit_log
 
   def execute_with_pg_audit_log(sql, name = nil)
     set_audit_user_id_and_name
+    set_audit_properties
     conn = execute_without_pg_audit_log(sql, name = nil)
     conn
   end
@@ -70,6 +81,7 @@ class ActiveRecord::ConnectionAdapters::PostgreSQLAdapter
 
   def exec_query_with_pg_audit_log(sql, name = 'SQL', binds = [])
     set_audit_user_id_and_name
+    set_audit_properties
     conn = exec_query_without_pg_audit_log(sql, name, binds)
     conn
   end
@@ -77,6 +89,7 @@ class ActiveRecord::ConnectionAdapters::PostgreSQLAdapter
 
   def exec_update_with_pg_audit_log(sql, name = 'SQL', binds = [])
     set_audit_user_id_and_name
+    set_audit_properties
     conn = exec_update_without_pg_audit_log(sql, name, binds)
     conn
   end
@@ -84,6 +97,7 @@ class ActiveRecord::ConnectionAdapters::PostgreSQLAdapter
 
   def exec_delete_with_pg_audit_log(sql, name = 'SQL', binds = [])
     set_audit_user_id_and_name
+    set_audit_properties
     conn = exec_delete_without_pg_audit_log(sql, name, binds)
     conn
   end

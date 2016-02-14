@@ -28,6 +28,7 @@ describe PgAuditLog do
 
     after do
       Thread.current[:current_user] = nil
+      Thread.current[:custom_audit_properties] = nil
       PgAuditLog::Entry.connection.execute("TRUNCATE #{PgAuditLog::Entry.quoted_table_name}")
     end
 
@@ -88,6 +89,24 @@ describe PgAuditLog do
           end
         end
 
+        context 'when custom properties are present, having just been changed' do
+          before do
+            record = AuditedModel.new
+            Thread.current[:custom_audit_properties] = {
+              application_name: 'Audited App',
+              application_id:   29
+            }
+            ActiveRecord::Persistence.instance_method(:save).bind(record).call # call save without transaction
+          end
+
+          describe '#properties' do
+            subject { super().properties }
+            it { is_expected.to eq({"application_id" => "29",
+              "application_name" => 'Audited App'})
+            }
+          end
+        end
+
         context "when no user is present" do
           before { AuditedModel.create!(attributes) }
 
@@ -99,6 +118,15 @@ describe PgAuditLog do
           describe '#user_unique_name' do
             subject { super().user_unique_name }
             it { is_expected.to eq('UNKNOWN') }
+          end
+        end
+
+        context 'when no custom properties are present' do
+          before { AuditedModel.create!(attributes) }
+
+          describe '#properties' do
+            subject { super().properties }
+            it { is_expected.to eq({}) }
           end
         end
 
@@ -161,6 +189,26 @@ describe PgAuditLog do
           describe '#user_unique_name' do
             subject { super().user_unique_name }
             it { is_expected.to eq('my current user') }
+          end
+        end
+
+        context 'when custom properties are present, having just been changed' do
+          subject { PgAuditLog::Entry.where(:field_name => 'str').last }
+          before do
+            Thread.current[:custom_audit_properties] = {
+              application_name: 'Audited App',
+              application_id:   42
+            }
+            @model.str = 'foobarbaz'
+            # @model.class.connection.execute "select * from #{AuditedModel.table_name}"
+            ActiveRecord::Persistence.instance_method(:save).bind(@model).call # call save without transaction
+          end
+
+          describe '#properties' do
+            subject { super().properties }
+            it { is_expected.to eq({"application_id" => "42",
+              "application_name" => 'Audited App'})
+            }
           end
         end
 
@@ -332,6 +380,16 @@ describe PgAuditLog do
         Thread.current[:current_user] = double('User', :id => 1, :unique_name => 'my current user')
         record.delete
         expect(PgAuditLog::Entry.order(:occurred_at).last.user_id).to eq 1
+      end
+
+      it 'records with custom properties after just changing properties' do
+        record = AuditedModel.create!
+        Thread.current[:custom_audit_properties] = {
+          application_name: 'Another Audited App'
+        }
+        record.delete
+        expect(PgAuditLog::Entry.order(:occurred_at).last
+          .properties['application_name']).to eq 'Another Audited App'
       end
 
       context "the audit log record without a primary key" do

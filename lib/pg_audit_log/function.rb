@@ -23,6 +23,10 @@ module PgAuditLog
         'last_accessed_at'
       end
 
+      def properties_column
+        'properties'
+      end
+
       def pg_audit_log_old_style_user_id
         defined?(Rails) && Rails.configuration.pg_audit_log_old_style_user_id rescue false
       end
@@ -43,6 +47,15 @@ module PgAuditLog
         end
       end
 
+      def properties_temporary_function(properties)
+        <<-SQL
+        CREATE OR REPLACE FUNCTION pg_temp.pg_audit_log_properties() RETURNS hstore
+        AS $_$
+          SELECT '#{::ActiveRecord::ConnectionAdapters::PostgreSQL::OID::Hstore.new.type_cast_for_database(properties)}'::hstore
+        $_$ LANGUAGE SQL STABLE;
+        SQL
+      end
+
       def install
         execute <<-SQL
         CREATE OR REPLACE PROCEDURAL LANGUAGE plpgsql;
@@ -58,12 +71,14 @@ module PgAuditLog
               user_identifier integer;
               unique_name varchar;
               column_name varchar;
+              properties hstore;
             BEGIN
               user_identifier := #{pg_audit_log_old_style_user_id ? %q(current_setting('audit.user_id')) : 'pg_temp.pg_audit_log_user_identifier()'};
               IF user_identifier = #{DISABLED_USER} THEN
                 RETURN NULL;
               END IF;
               unique_name := #{pg_audit_log_old_style_user_id ? %q(current_setting('audit.user_unique_name')) : 'pg_temp.pg_audit_log_user_unique_name()'};
+              properties := pg_temp.pg_audit_log_properties();
               primary_key_column := NULL;
               EXECUTE 'SELECT pg_attribute.attname
                        FROM pg_index, pg_class, pg_attribute
@@ -104,7 +119,8 @@ module PgAuditLog
                                           "field_value_new",
                                           "user_id",
                                           "user_unique_name",
-                                          "occurred_at"
+                                          "occurred_at",
+                                          "properties"
                                          )
                     VALUES(TG_OP,
                           TG_RELNAME,
@@ -114,7 +130,8 @@ module PgAuditLog
                           new_value,
                           user_identifier,
                           unique_name,
-                          current_timestamp);
+                          current_timestamp,
+                          properties);
                   END IF;
                 END IF;
               END LOOP;
