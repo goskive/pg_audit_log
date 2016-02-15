@@ -51,7 +51,7 @@ module PgAuditLog
         <<-SQL
         CREATE OR REPLACE FUNCTION pg_temp.pg_audit_log_properties() RETURNS hstore
         AS $_$
-          SELECT '#{::ActiveRecord::ConnectionAdapters::PostgreSQL::OID::Hstore.new.type_cast_for_database(properties)}'::hstore
+          SELECT '#{serialize_properties_hstore(properties)}'::hstore
         $_$ LANGUAGE SQL STABLE;
         SQL
       end
@@ -151,6 +151,20 @@ module PgAuditLog
           FROM pg_proc
           WHERE pg_proc.proname = '#{name}'
         SQL
+      end
+
+      private
+
+      def serialize_properties_hstore(properties)
+        if ::ActiveRecord::VERSION::MAJOR >= 5
+          hstore = ::ActiveRecord::ConnectionAdapters::PostgreSQL::OID::Hstore.new
+          hstore.serialize(properties)
+        elsif ::ActiveRecord::VERSION::MAJOR >= 4 && ::ActiveRecord::VERSION::MINOR >= 2
+          hstore = ::ActiveRecord::ConnectionAdapters::PostgreSQL::OID::Hstore.new
+          hstore.type_cast_for_database(properties)
+        elsif ::ActiveRecord::VERSION::MAJOR >= 4
+          ::ActiveRecord::ConnectionAdapters::PostgreSQLColumn::hstore_to_string(properties)
+        end
       end
     end
   end

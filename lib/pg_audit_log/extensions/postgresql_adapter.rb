@@ -79,7 +79,7 @@ class ActiveRecord::ConnectionAdapters::PostgreSQLAdapter
   end
   alias_method_chain :execute, :pg_audit_log
 
-  def exec_query_with_pg_audit_log(sql, name = 'SQL', binds = [])
+  def exec_query_with_pg_audit_log(sql, name = 'SQL', binds = [], prepare: false)
     set_audit_user_id_and_name
     set_audit_properties
     conn = exec_query_without_pg_audit_log(sql, name, binds)
