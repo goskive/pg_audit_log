@@ -9,18 +9,18 @@ before_script:
   - psql pg_audit_log_test -c 'CREATE EXTENSION IF NOT EXISTS hstore;' -U postgres
 
 rvm:
-  - "1.9"
-  - "2.0"
+  #- "1.9"
+  #- "2.0"
   - "2.1"
   - "2.2"
   #- jruby-19mode
-  - rbx-2.2
+  #- rbx-2.2
 
 env:
   - RAILS_VERSION="~> 4.2.0"
-  - RAILS_VERSION="~> 4.1.0"
-  - RAILS_VERSION="~> 4.0.0"
-  - RAILS_VERSION="~> 3.2.0"
+  #- RAILS_VERSION="~> 4.1.0"
+  #- RAILS_VERSION="~> 4.0.0"
+  #- RAILS_VERSION="~> 3.2.0"
 
 matrix:
   allow_failures:
