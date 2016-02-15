@@ -6,6 +6,7 @@ addons:
 
 before_script:
   - psql -c 'CREATE DATABASE pg_audit_log_test;' -U postgres
+  - psql pg_audit_log_test -c 'CREATE EXTENSION IF NOT EXISTS hstore;' -U postgres
 
 rvm:
   - "1.9"
